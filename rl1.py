@@ -1,3 +1,5 @@
+from collections import deque
+
 import numpy
 import time
 import subprocess
@@ -16,31 +18,65 @@ class Agent1:
     def __init__(self, env):
         self.dim_s = env.observation_space.n
         self.dim_a = env.action_space.n
+        self.Q = numpy.zeros((self.dim_s, self.dim_a))
+        self.alpha = 0.1
+        self.gamma = 0.95
+        self.epsilon = 0.05
+
+    def set_optimal(self):
+        self.epsilon = 0.0
 
     def step(self, state, action, reward, next_state, done):
-        pass
+        self.sarsa_update(state, action, reward, next_state)
+
+    def sarsa_update(self, state, action, reward, next_state):
+        next_action = numpy.argmax(self.Q[next_state, :])
+        self.Q[state, action] = self.Q[state, action]*(1.0 - self.alpha) + self.alpha*(
+                reward + self.gamma*self.Q[next_state, next_action])
 
     def select_action(self, state):
-        return random.randint(0, self.dim_a-1)
+        if random.random() <= self.epsilon:
+            return random.randint(0, self.dim_a-1)
+        return numpy.argmax(self.Q[state, :])
 
 
-def run(env, agent, max_episodes=10):
+def train(env, agent, max_episodes=25000):
+    end_rewards = deque(maxlen=100)
+
+    for i in range(max_episodes):
+        state = env.reset()
+        cum_episode_reward = 0
+        while True:
+            action = agent.select_action(state)
+            next_state, reward, done, _ = env.step(action)
+            cum_episode_reward += reward
+            agent.step(state, action, reward, next_state, done)
+            state = next_state
+            if done:
+                break
+        end_rewards.append(cum_episode_reward)
+        mean_end_reward = numpy.mean(end_rewards)
+        if i % 100 == 0:
+            print(i, mean_end_reward)
+
+
+def visualize(env, agent):
     state = env.reset()
-    cum_reward = 0
-    for _ in range(max_episodes):
+    cum_episode_reward = 0
+    while True:
         action = agent.select_action(state)
         next_state, reward, done, _ = env.step(action)
-
-        agent.step(state, action, reward, next_state, done)
-        cum_reward += reward
+        cum_episode_reward += reward
+        render(env, cum_episode_reward)
         state = next_state
         if done:
-            return cum_reward
-
-        render(env, cum_reward)
+            break
 
 
 if __name__ == '__main__':
     environment = gym.make('Taxi-v2')
-    end_reward = run(environment, Agent1(environment))
+    ag = Agent1(environment)
+    train(environment, ag)
+    visualize(environment, ag)
+
 
