@@ -6,6 +6,7 @@ import subprocess
 import gym
 import random
 import networkx
+import itertools
 
 
 def render(env, i, cum_reward):
@@ -39,6 +40,28 @@ def decode(i):
     return reversed(out)
 
 
+def test_taxi_policy_eval1():
+    policy_eval = TaxiPolicyEval()
+    for i, (r, c) in enumerate(policy_eval.locs):
+        for j in range(4):
+            assert policy_eval.action_is_optimal(encode(r,c,i,j), 4)
+        assert policy_eval.action_is_optimal(encode(r,c,4,i), 5)
+        for j in range(4):
+            if i == j:
+                assert policy_eval.action_is_optimal(encode(r,c,4,j), 5)
+            else:
+                assert not policy_eval.action_is_optimal(encode(r,c,4,j), 5)
+
+
+def test_taxi_policy_eval2():
+    policy_eval = TaxiPolicyEval()
+    for r, c, p, d in itertools.product(range(5), range(5), range(4), range(3)):
+        if (r, c) in policy_eval.locs:
+            continue
+        assert not policy_eval.action_is_optimal(encode(r,c,p,d), 4)
+        assert not policy_eval.action_is_optimal(encode(r,c,p,d), 5)
+
+
 class TaxiPolicyEval:
     """
     +---------+
@@ -62,8 +85,8 @@ class TaxiPolicyEval:
 
     def action_is_optimal(self, state, action):
         r, c, pass_loc, dest_idx = decode(state)
-        sys.stdout.write(f'state {state}: {r} {c} {self.pass_loc_decode[pass_loc]} {self.dest_decode[dest_idx]}  ')
-        sys.stdout.write(f'action {action}: {self.action_decode[action]}  ')
+        # sys.stdout.write(f'state {state}: {r} {c} {self.pass_loc_decode[pass_loc]} {self.dest_decode[dest_idx]}  ')
+        # sys.stdout.write(f'action {action}: {self.action_decode[action]}  ')
 
         pass_in_taxi = pass_loc == 4
         goal_tile = self.locs[dest_idx] if pass_in_taxi else self.locs[pass_loc]
@@ -77,7 +100,6 @@ class TaxiPolicyEval:
         r1 = r + self.drive[action][0]
         c1 = c + self.drive[action][1]
         for path in networkx.all_shortest_paths(self.graph, source=(r, c), target=goal_tile):
-            # print(list(path))
             if (r1, c1) == path[1]:
                 return True
         else:
@@ -88,10 +110,32 @@ class TaxiPolicyEval:
         for s, a in enumerate(policy):
             if not self.action_is_optimal(s, a):
                 distance += 1
-                print('not opt')
+                # print('not opt')
             else:
-                print('')
+                pass
+                # print('')
         return distance
+
+    def get_optimal_policy(self):
+        policy = numpy.zeros(500)
+        for state in range(len(policy)):
+            policy[state] = -999
+            for action in range(6):
+                if self.action_is_optimal(state, action):
+                    policy[state] = action
+            assert policy[state] in list(range(6))
+        return policy
+
+
+class PolicyExecutor:
+    def __init__(self, policy):
+        self.policy = policy
+
+    def step(self, state, action, reward, next_state, done):
+        pass
+
+    def select_action(self, state):
+        return numpy.asscalar(self.policy[state])
 
 
 class Agent1:
@@ -190,16 +234,15 @@ def visualize(env, agent):
 if __name__ == '__main__':
     environment = gym.make('Taxi-v2')
     ag = Agent1(environment, alpha=0.05, gamma=0.9, epsilon=0.0, update_method='expected_sarsa')
-    run(environment, ag, max_episodes=20000)
-    ag.test_phase = True
+    #run(environment, ag, max_episodes=20000)
 
-    mean_end_reward = run(environment, ag, max_episodes=10000, verbose=False)
-    print('max_mean_reward', mean_end_reward)
-
-    print(ag.get_policy())
+    #ag.test_phase = True
+    #mean_end_reward = run(environment, ag, max_episodes=10000, verbose=False)
+    #print('mean_end_reward', mean_end_reward)
 
     policy_eval = TaxiPolicyEval()
-    print(policy_eval.distance_to_optimal(ag.get_policy()))
+    optimal_agent = PolicyExecutor(policy_eval.get_optimal_policy())
 
-
+    mean_end_reward = run(environment, optimal_agent, max_episodes=25000, verbose=False)
+    print('mean_end_reward', mean_end_reward)
 
