@@ -139,7 +139,7 @@ class Agent1:
         if self.test_phase:
             return 0.0
         n = self.episodes_no
-        if n < 110000.0:
+        if n < 11000.0:
             return 0.1
         return self.epsilon0
 
@@ -150,7 +150,6 @@ class Agent1:
 
     def get_policy(self):
         return numpy.argmax(self.Q, axis=1)
-
 
 
 def run(env, agent, max_episodes=20000, verbose=True):
@@ -191,7 +190,7 @@ def visualize(env, agent):
 if __name__ == '__main__':
     environment = gym.make('Taxi-v2')
     ag = Agent1(environment, alpha=0.05, gamma=0.9, epsilon=0.0, update_method='expected_sarsa')
-    run(environment, ag, max_episodes=200000)
+    run(environment, ag, max_episodes=20000)
     ag.test_phase = True
 
     mean_end_reward = run(environment, ag, max_episodes=10000, verbose=False)
