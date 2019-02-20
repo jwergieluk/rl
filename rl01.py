@@ -1,4 +1,3 @@
-import sys
 import math
 import numpy
 import time
@@ -9,11 +8,11 @@ import networkx
 import itertools
 
 
-def render(env, i, cum_reward):
+def render(env, i, reward, cum_reward):
     subprocess.call('clear', shell=False)
     env.render()
-    print(f'ep {i}  cum_reward {cum_reward}')
-    time.sleep(1.0 / 2.0)
+    print(f'ep {i}  last_reward {reward}  cum_reward {cum_reward}')
+    time.sleep(1.0)
 
 
 def encode(taxi_row, taxi_col, pass_loc, dest_idx):
@@ -83,6 +82,20 @@ class TaxiPolicyEval:
         self.graph = networkx.Graph()
         self.graph.add_edges_from(self.edges)
 
+    def expected_end_reward(self):
+        expectation = -1.0 + 20.0  # pickup action and the dropoff action reward
+        path_lengths = 0.0
+        path_no = 0.0
+        for r0, c0, pickup_index, dropoff_index in itertools.product(
+                range(5), range(5), range(4), range(4)):
+            if pickup_index == dropoff_index:
+                continue
+            path_lengths += networkx.shortest_path_length(self.graph, (r0, c0), self.locs[pickup_index])
+            path_lengths += networkx.shortest_path_length(self.graph, self.locs[pickup_index], self.locs[dropoff_index])
+            path_no += 1.0
+        expectation -= path_lengths/path_no
+        return expectation
+
     def action_is_optimal(self, state, action):
         r, c, pass_loc, dest_idx = decode(state)
         # sys.stdout.write(f'state {state}: {r} {c} {self.pass_loc_decode[pass_loc]} {self.dest_decode[dest_idx]}  ')
@@ -124,7 +137,7 @@ class TaxiPolicyEval:
                 if self.action_is_optimal(state, action):
                     policy[state] = action
             assert policy[state] in list(range(6))
-        return policy
+        return policy.astype('int').tolist()
 
 
 class PolicyExecutor:
@@ -135,7 +148,7 @@ class PolicyExecutor:
         pass
 
     def select_action(self, state):
-        return numpy.asscalar(self.policy[state])
+        return self.policy[state]
 
 
 class Agent1:
@@ -221,14 +234,16 @@ def run(env, agent, max_episodes=20000, verbose=True):
 def visualize(env, agent):
     state = env.reset()
     cum_episode_reward = 0
+    render(env, -1, 0, cum_episode_reward)
     for i in range(1000):
         action = agent.select_action(state)
         next_state, reward, done, _ = env.step(action)
         cum_episode_reward += reward
-        render(env, i, cum_episode_reward)
+        render(env, i, reward, cum_episode_reward)
         state = next_state
         if done:
             break
+    return cum_episode_reward
 
 
 def main():
@@ -236,6 +251,7 @@ def main():
 
     policy_eval = TaxiPolicyEval()
     optimal_agent = PolicyExecutor(policy_eval.get_optimal_policy())
+    print('expected end reward', policy_eval.expected_end_reward())
     mean_end_reward = run(environment, optimal_agent, max_episodes=50000, verbose=True)
     print('mean_end_reward', mean_end_reward)
 
