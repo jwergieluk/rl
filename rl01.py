@@ -214,7 +214,7 @@ def run(env, agent, max_episodes=20000, verbose=True):
         avg = numpy.mean(end_rewards[-100:])
         best_avg_reward = avg if avg > best_avg_reward else best_avg_reward
         if i % 500 == 0 and verbose:
-            print(i, best_avg_reward, numpy.mean(agent.Q))
+            print(i, best_avg_reward)
     return numpy.mean(end_rewards)
 
 
@@ -231,18 +231,22 @@ def visualize(env, agent):
             break
 
 
-if __name__ == '__main__':
+def main():
     environment = gym.make('Taxi-v2')
-    ag = Agent1(environment, alpha=0.05, gamma=0.9, epsilon=0.0, update_method='expected_sarsa')
-    #run(environment, ag, max_episodes=20000)
-
-    #ag.test_phase = True
-    #mean_end_reward = run(environment, ag, max_episodes=10000, verbose=False)
-    #print('mean_end_reward', mean_end_reward)
 
     policy_eval = TaxiPolicyEval()
     optimal_agent = PolicyExecutor(policy_eval.get_optimal_policy())
-
-    mean_end_reward = run(environment, optimal_agent, max_episodes=25000, verbose=False)
+    mean_end_reward = run(environment, optimal_agent, max_episodes=50000, verbose=True)
     print('mean_end_reward', mean_end_reward)
+
+    agent = Agent1(environment, alpha=0.05, gamma=0.9, epsilon=0.0, update_method='expected_sarsa')
+    run(environment, agent, max_episodes=20000)
+
+    agent.test_phase = True
+    mean_end_reward = run(environment, agent, max_episodes=10000, verbose=False)
+    print('mean_end_reward', mean_end_reward)
+
+
+if __name__ == '__main__':
+    main()
 
